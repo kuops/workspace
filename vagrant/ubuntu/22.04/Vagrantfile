@@ -1,0 +1,158 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.require_version ">= 2.2.19"
+
+ENV['VAGRANT_EXPERIMENTAL'] = "disks"
+ENV["LC_ALL"] = "en_US.UTF-8"
+
+BOX      = 'ubuntu/jammy64'
+BOX_URL  = 'https://mirrors.ustc.edu.cn/ubuntu-cloud-images/jammy/current/jammy-server-cloudimg-amd64-vagrant.box'
+HOSTNAME = 'ubuntu-node-01'
+
+Vagrant.require_version ">= 2.2.6"
+
+Vagrant.configure(2) do |config|
+
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = false
+  end
+
+  config.vm.box_url = BOX_URL
+  config.vm.box = BOX
+  config.vm.box_check_update = false
+  config.vm.box_download_insecure = true
+  config.vm.graceful_halt_timeout = 120
+  config.vm.hostname = HOSTNAME
+  config.vm.network "private_network", ip: "10.17.0.100"
+  config.vm.disk :disk, name: "data", size: "100GB"
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = HOSTNAME
+    vb.gui = false
+    vb.cpus = 1
+    vb.memory = 2048
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+    #!/bin/bash
+    set -exu
+    # setting data storage
+    FORMATED_FILE="/etc/default/disk-format"
+    if ! [ -f ${FORMATED_FILE} ] && ! mountpoint -q /data ;then
+      mkdir -p /data
+      parted -s /dev/sdc mklabel gpt
+      yes | mkfs.ext4 /dev/sdc
+      grep '/data' /etc/fstab || echo "/dev/sdc /data  ext4 defaults 0 0" >> /etc/fstab
+      mount -a
+      echo "ok" > ${FORMATED_FILE}
+    fi
+    # preventing apt-get trying access stdin
+	export DEBIAN_FRONTEND=noninteractive
+    # remove cloud init
+    systemctl disable --now cloud-config.service
+    systemctl disable --now cloud-final.service
+    systemctl disable --now cloud-init-local.service
+    systemctl disable --now cloud-init.service
+    apt-get -y remove cloud-init
+    apt-get -y autoremove
+    # replace source list
+    sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+	sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+    # install common software
+	apt-get update
+    apt-get -y install vim
+    # set dns use self manage
+    systemctl disable --now systemd-resolved.service
+    if [ -l /etc/resolv.conf ];then
+      rm -f /etc/resolv.conf
+    fi
+    echo "nameserver 114.114.114.114" > /etc/resolv.conf
+    # apt-get install  software
+    curl -fsSL http://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | apt-key add -
+    echo "deb http://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker-ce.list
+    apt-get update
+    apt-get -y install docker-ce
+    # change docker settings
+    mkdir -p /etc/docker
+    { \
+      echo '{'; \
+      echo '  "data-root": "/data/docker",'; \
+      echo '  "registry-mirrors": ["https://hub-mirror.c.163.com","https://hub.mirror.aliyuncs.com"],'; \
+      echo '  "log-driver": "json-file",'; \
+      echo '  "log-opts": {'; \
+      echo '    "max-size": "100m"'; \
+      echo '  },'; \
+      echo '  "storage-driver": "overlay2"'; \
+      echo '}';
+    }  > /etc/docker/daemon.json
+    mkdir -p /etc/systemd/system/docker.service.d
+    usermod -G docker vagrant
+    systemctl daemon-reload
+    systemctl restart docker
+    # load kernel module
+    { \
+      echo "ip_vs"; \
+      echo "ip_vs_dh"; \
+      echo "ip_vs_rr"; \
+      echo "ip_vs_wrr"; \
+      echo "ip_vs_sh"; \
+      echo "nf_conntrack_ipv4"; \
+      echo "br_netfilter"; \
+     } > /etc/modules-load.d/modules.conf
+     systemctl start systemd-modules-load.service
+    # setting kernel parameter values
+    { \
+      echo "net.ipv4.ip_forward = 1"; \
+      echo "net.ipv4.conf.all.rp_filter = 0"; \
+      echo "net.ipv4.conf.all.proxy_arp = 1"; \
+      echo "net.ipv4.tcp_keepalive_time = 600"; \
+      echo "net.ipv4.tcp_keepalive_intvl = 60"; \
+      echo "net.ipv4.tcp_keepalive_probes = 20"; \
+      echo "net.ipv4.tcp_fin_timeout = 10"; \
+      echo "net.ipv4.ip_nonlocal_bind = 1"; \
+      echo "net.ipv4.conf.all.accept_redirects = 1"; \
+      echo "net.ipv4.conf.all.send_redirects = 1"; \
+      echo "net.ipv4.conf.all.accept_source_route = 1"; \
+      echo "net.ipv4.conf.all.shared_media = 1"; \
+      echo "net.ipv6.conf.all.disable_ipv6 = 1"; \
+      echo "net.core.netdev_max_backlog = 182757"; \
+      echo "net.bridge.bridge-nf-call-iptables = 1"; \
+      echo "net.bridge.bridge-nf-call-ip6tables = 1"; \
+      echo "fs.inotify.max_queued_events = 1048576"; \
+      echo "fs.inotify.max_user_instances = 1048576"; \
+      echo "fs.inotify.max_user_watches = 1048576"; \
+      echo "vm.max_map_count = 262144"; \
+      echo "kernel.dmesg_restrict = 0"; \
+      echo "net.ipv4.tcp_max_syn_backlog = 4096"; \
+      echo "net.ipv4.tcp_syncookies = 1"; \
+      echo "net.core.somaxconn = 4096"; \
+      echo "net.core.netdev_max_backlog = 2500"; \
+      echo "net.core.rmem_max=25165824"; \
+      echo "net.core.wmem_max=25165824"; \
+      echo "net.ipv4.tcp_mem = 786432 2097152 3145728"; \
+      echo "net.ipv4.tcp_rmem = 4096 87380 16777216"; \
+      echo "net.ipv4.tcp_wmem = 4096 87380 16777216"; \
+      echo "kernel.pid_max = 65536"; \
+      echo "net.nf_conntrack_max = 655350"; \
+      echo "net.netfilter.nf_conntrack_max = 655350"; \
+      echo "vm.max_map_count=65536"; \
+      echo "net.ipv4.neigh.default.gc_thresh1 = 4096"; \
+      echo "net.ipv4.neigh.default.gc_thresh1 = 8192"; \
+      echo "net.ipv4.neigh.default.gc_thresh1 = 20480"; \
+      echo "net.ipv6.neigh.default.gc_thresh1 = 4096"; \
+      echo "net.ipv6.neigh.default.gc_thresh1 = 8192"; \
+      echo "net.ipv6.neigh.default.gc_thresh1 = 20480"; \
+      echo "net.ipv4.tcp_max_tw_buckets = 262144"; \
+      echo "net.ipv4.tcp_tw_reuse = 1"; \
+    } > /etc/sysctl.d/99-sysctl.conf
+    sysctl --system
+    # limits.conf
+    { \
+      echo "* soft nofile 65535"; \
+      echo "* hard nofile 65535"; \
+      echo "* soft nproc 65535"; \
+      echo "* hard nproc 65535"; \
+      echo "* soft memlock unlimited"; \
+      echo "* hard memlock unlimited"; \
+    } > /etc/security/limits.d/limits.conf
+  SHELL
+end
