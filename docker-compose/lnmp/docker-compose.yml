@@ -28,6 +28,7 @@ services:
       REDIS_PASSWORD: 123456
     command: bash -c 'docker-entrypoint.sh --requirepass "$${REDIS_PASSWORD}"'
   php-fpm:
+    image: local/php-fpm:8.1
     build:
       context: ./php
       dockerfile: Dockerfile
