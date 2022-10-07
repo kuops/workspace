@@ -1,0 +1,52 @@
+version: '3'
+services:
+  master:
+    image: local/jenkins:lts-jdk11
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    user: root
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      JENKINS_UC: https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates
+      JENKINS_UC_EXPERIMENTAL: https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/experimental
+      JENKINS_UC_DOWNLOAD: https://mirrors.tuna.tsinghua.edu.cn/jenkins
+      JAVA_OPTS: >
+        -Xms512m -Xmx512m
+        -Duser.timezone=Asia/Shanghai
+        -Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8
+        -Djenkins.install.runSetupWizard=false
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs
+    ports:
+      - 8080:8080
+      - 50000:50000
+    volumes:
+      - master-data:/var/jenkins_home
+      - ./casc_configs:/var/jenkins_home/casc_configs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  slave:
+    image: jenkins/jnlp-agent-docker:latest
+    user: root
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      JENKINS_URL: http://master:8080
+      JENKINS_AGENT_NAME: slave-01
+      JENKINS_AGENT_WORKDIR: /home/jenkins/agent
+      JENKINS_TUNNEL: master:50000
+      JAVA_OPTS: >
+        -Xms512m -Xmx512m
+        -Duser.timezone=Asia/Shanghai
+        -Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8
+    entrypoint: /bin/bash
+    command: /usr/local/bin/slave-start.sh
+    volumes:
+      - slave-data:/home/jenkins/agent
+      - ./slave-start.sh:/usr/local/bin/slave-start.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - master
+volumes:
+  master-data:
+  slave-data:
