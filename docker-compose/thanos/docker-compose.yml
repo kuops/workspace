@@ -9,7 +9,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     command:
-      - '--storage.tsdb.retention.time=31d'
+      - '--storage.tsdb.retention.time=6h'
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--web.enable-admin-api'
       - '--web.enable-lifecycle'
@@ -57,13 +57,13 @@ services:
       - compact
       - --data-dir=/data/cache
       - --objstore.config-file=/conf/bucket.yml
+      - --retention.resolution-raw=2d
+      - --retention.resolution-5m=3d
+      - --retention.resolution-1h=4d
     volumes:
       - ./bucket.yml:/conf/bucket.yml
       - compactor-cache:/data/cache
       - objstore:/data/objstore
-      - --retention.resolution-raw=30d
-      - --retention.resolution-5m=60d
-      - --retention.resolution-1h=90d
 volumes:
   prometheus-data:
   store-cache:
