@@ -1,0 +1,11 @@
+version: '3'
+services:
+  ubuntu:
+    image: ubuntu:22.04
+    restart : always
+    privileged: true
+    tty: true
+    pid: host
+    environment:
+      TZ: Asia/Shanghai
+    command: nsenter -t 1 -m -u -n -i cat
