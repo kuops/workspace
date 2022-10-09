@@ -1,0 +1,4 @@
+type: FILESYSTEM
+config:
+  directory: "/data/objstore"
+prefix: "thanos"

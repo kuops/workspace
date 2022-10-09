@@ -1,0 +1,57 @@
+version: '3'
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: always
+  prometheus:
+    image: prom/prometheus:v2.39.1
+    restart : always
+    environment:
+      TZ: Asia/Shanghai
+    command:
+      - '--storage.tsdb.retention.time=31d'
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-admin-api'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.max-block-duration=2h'
+      - '--storage.tsdb.min-block-duration=2h'
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/data/prometheus
+  sidecar:
+    image: thanosio/thanos:v0.28.1
+    command:
+      - sidecar
+      - --tsdb.path=/data/prometheus
+      - --prometheus.url=http://prometheus:9090
+      - --objstore.config-file=/conf/bucket.yml
+      - --grpc-address=0.0.0.0:19090
+    volumes:
+      - ./bucket.yml:/conf/bucket.yml
+      - prometheus-data:/data/prometheus
+      - objstore:/data/objstore
+  query:
+    image: thanosio/thanos:v0.28.1
+    command:
+      - query
+      - --http-address=0.0.0.0:9090
+      - --store=sidecar:19090
+      - --store=store:19090
+    ports:
+      - '9090:9090'
+  store:
+    image: thanosio/thanos:v0.28.1
+    command:
+      - store
+      - --data-dir=/data/cache
+      - --objstore.config-file=/conf/bucket.yml
+      - --grpc-address=0.0.0.0:19090
+      - --sync-block-duration=30m
+    volumes:
+      - ./bucket.yml:/conf/bucket.yml
+      - store-cache:/data/cache
+      - objstore:/data/objstore
+volumes:
+  prometheus-data:
+  store-cache:
+  objstore:
