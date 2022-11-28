@@ -15,7 +15,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ./apisix_log:/usr/local/apisix/logs
+      - apisix_log:/usr/local/apisix/logs
       - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
     depends_on:
       - etcd
@@ -55,4 +55,5 @@ services:
       - "./grafana_conf/dashboards:/var/lib/grafana/dashboards"
       - "./grafana_conf/config/grafana.ini:/etc/grafana/grafana.ini"
 volumes:
+  apisix_log:
   etcd_data:
