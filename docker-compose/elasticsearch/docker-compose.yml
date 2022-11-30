@@ -1,0 +1,42 @@
+version: '3'
+services:
+  setup:
+    image: elasticsearch:8.5.2
+    container_name: setup
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo "Setting kibana_system password"
+        until curl -s -X POST -u "${ELASTIC_USER:-}:${ELASTIC_PASSWORD:-}" -H "Content-Type: application/json" http://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD:-}\"}" &> /dev/null; do sleep 10; done;
+        echo "All done!"
+  elasticsearch:
+    image: elasticsearch:8.5.2
+    ports:
+      - 9200:9200
+    restart : always
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      TZ: Asia/Shanghai
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      node.name: elasticsearch
+      discovery.type: single-node
+      xpack.security.enabled: true
+      xpack.license.self_generated.type: basic
+  kibana:
+    image: kibana:8.5.2
+    ports:
+      - 5601:5601
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      SERVERNAME: kibana
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD:-}
+    depends_on:
+      - elasticsearch
+volumes:
+  elasticsearch-data:
