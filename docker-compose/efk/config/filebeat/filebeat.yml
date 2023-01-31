@@ -1,0 +1,20 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /var/log/nginx/nginx-access.log
+setup.ilm.enabled: false
+setup.template.overwrite: true
+exclude_files: [".gz$"]
+
+processors:
+  - add_locale: ~
+
+output.elasticsearch:
+  hosts: '${ELASTICSEARCH_HOSTS:elasticsearch:9200}'
+  username: '${ELASTICSEARCH_USERNAME:}'
+  password: '${ELASTICSEARCH_PASSWORD:}'
+  index: "nginx-access-log-%{+yyyy.MM.dd}"
+setup.template:
+  name: 'nginx-access-log'
+  pattern: 'nginx-access-log-*'
+  enabled: false
