@@ -3,7 +3,7 @@
     errors
     health
     prometheus :9153
-    forward . /etc/resolv.conf
+    forward . 223.5.5.5 223.6.6.6
     cache 30
     loop
     reload
