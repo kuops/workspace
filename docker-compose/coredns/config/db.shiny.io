@@ -7,3 +7,4 @@ $ORIGIN shiny.io.
     600)         ;minimum ttl
 
 *      IN  A  127.0.0.1
+@      IN  A  127.0.0.1
