@@ -42,12 +42,6 @@ wsl
 
 ## WSL 设置
 
-
-## WSL 设置
-
-
-## WSL 设置
-
 修改 wsl 配置，`/etc/wsl.conf`
 
 ```text
