@@ -8,10 +8,16 @@
 wsl --update
 ```
 
-创建 vmSwitch 
+查看 Windows 网卡，找到要桥接的网卡名称
+
+```
+Get-NetAdapter
+```
+
+创建 vmSwitch，NetAdapterName 为上面查到到的需要桥接的网卡名称
 
 ```powershell
-New-VMSwitch -Name "vEthernet" -NetAdapterName Bridge -AllowManagementOS:$true
+New-VMSwitch -Name "Bridge" -NetAdapterName WLAN -AllowManagementOS:$true
 ```
 
 Windows 的 `%USERPROFILE%` 中添加 `.wslconfig` 文件
@@ -19,7 +25,7 @@ Windows 的 `%USERPROFILE%` 中添加 `.wslconfig` 文件
 ```text
 [wsl2]
 networkingMode=bridged
-# 上一步创建的 vmSwitch 的 NetAdapterName
+# 上一步创建的 vmSwitch 的 Name 字段
 vmSwitch=Bridge
 dhcp=false
 ipv6=true
